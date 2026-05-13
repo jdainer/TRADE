@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>jhon arias trading</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :root { --bg: #0b0e11; --card: #161a1e; --accent: #f0b90b; }
+        body { background-color: var(--bg); color: #eaecef; font-family: 'Inter', sans-serif; overflow: hidden; }
+        .input-trading { background: #1e2329; border: 1px solid #474d57; border-radius: 4px; padding: 12px; color: white; width: 100%; outline: none; transition: border 0.3s; }
+        .input-trading:focus { border-color: var(--accent); }
+    </style>
+</head>
+<body class="h-screen flex flex-col">
+
+    <header class="h-16 border-b border-[#2b3139] flex items-center justify-between px-8 bg-[#161a1e]">
+        <div class="flex items-center gap-6">
+            <h1 class="text-[#f0b90b] font-bold text-2xl tracking-tighter">JHONARIAS<span class="text-white">CONVERT</span></h1>
+            <div class="bg-[#2b3139] px-3 py-1 rounded text-sm font-mono">
+                <span class="text-gray-400">Tasa Representativa Del Mercado HOY:</span> <span id="header-trm" class="text-[#02c076] font-bold">$0.00</span>
+            </div>
+        </div>
+        <div class="flex gap-4">
+            <div class="text-right">
+                <div class="text-[10px] text-gray-500 uppercase font-bold text-right">Mi Billetera</div>
+                <div id="balance-cop" class="text-[#f0b90b] font-mono font-bold">$1.000.000</div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 flex overflow-hidden">
+        
+        <aside class="w-96 border-r border-[#2b3139] bg-[#161a1e] p-6 flex flex-col gap-6">
+            <div>
+                <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span class="w-2 h-6 bg-[#f0b90b] rounded-full"></span>
+                    Conversor Rápido
+                </h2>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold mb-1 block">TIENES (USD)</label>
+                        <div class="relative">
+                            <input type="number" id="conv-usd" class="input-trading text-xl font-bold" value="1" oninput="convertir('USD')">
+                            <span class="absolute right-4 top-3 text-gray-500 font-bold">USD</span>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="bg-[#2b3139] p-2 rounded-full">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-gray-400"><path d="M7 15l5 5 5-5"/><path d="M7 9l5-5 5 5"/></svg>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="text-xs text-gray-400 font-bold mb-1 block">RECIBES (COP)</label>
+                        <div class="relative">
+                            <input type="number" id="conv-cop" class="input-trading text-xl font-bold" oninput="convertir('COP')">
+                            <span class="absolute right-4 top-3 text-gray-500 font-bold">COP</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-auto border-t border-[#2b3139] pt-6">
+                <h3 class="text-xs font-bold text-gray-500 mb-4 uppercase tracking-widest">Simulador de Trading</h3>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <button onclick="trade('BUY')" class="bg-[#02c076] hover:bg-[#03a66d] py-3 rounded font-bold text-white transition-all active:scale-95">COMPRAR</button>
+                    <button onclick="trade('SELL')" class="bg-[#f6465d] hover:bg-[#cf304a] py-3 rounded font-bold text-white transition-all active:scale-95">VENDER</button>
+                </div>
+                <div id="positions" class="bg-[#0b0e11] p-3 rounded text-[11px] text-gray-400">
+                    Dólares en cartera: <span id="hold-usd" class="text-white font-bold">0 USD</span>
+                </div>
+            </div>
+        </aside>
+
+        <section class="flex-1 relative">
+            <div id="tradingview_widget" class="h-full"></div>
+        </section>
+
+    </main>
+
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    <script>
+        let trmActual = 0;
+        let saldoCop = parseFloat(localStorage.getItem('ariaconv_cop')) || 10000000;
+        let saldoUsd = parseFloat(localStorage.getItem('ariaconv_usd')) || 0;
+
+        // Iniciar Widget TradingView
+        new TradingView.widget({
+            "autosize": true,
+            "symbol": "FX_IDC:USDCOP",
+            "interval": "D",
+            "timezone": "America/Bogota",
+            "theme": "dark",
+            "style": "3", // Área para que se vea más limpio
+            "locale": "es",
+            "container_id": "tradingview_widget"
+        });
+
+        // Obtener TRM Real
+        async function getTRM() {
+            try {
+                const response = await fetch('https://co.dolarapi.com/v1/trm');
+                const data = await response.json();
+                trmActual = data.valor;
+                document.getElementById('header-trm').innerText = `$${trmActual.toLocaleString('es-CO')}`;
+                convertir('USD'); // Actualiza el conversor al cargar
+                renderData();
+            } catch (e) { console.error("Error API", e); }
+        }
+
+        // LA ESENCIA: Función de conversión
+        function convertir(origen) {
+            const inputUsd = document.getElementById('conv-usd');
+            const inputCop = document.getElementById('conv-cop');
+
+            if(origen === 'USD') {
+                const val = inputUsd.value;
+                inputCop.value = (val * trmActual).toFixed(0);
+            } else {
+                const val = inputCop.value;
+                inputUsd.value = (val / trmActual).toFixed(2);
+            }
+        }
+
+        // LÓGICA DE TRADING
+        function trade(tipo) {
+            const usdAOperar = parseFloat(document.getElementById('conv-usd').value);
+            const costoCop = usdAOperar * trmActual;
+
+            if(tipo === 'BUY') {
+                if(saldoCop >= costoCop) {
+                    saldoCop -= costoCop;
+                    saldoUsd += usdAOperar;
+                    alert(`Has comprado ${usdAOperar} USD`);
+                } else { alert("No tienes suficiente dinero en COP"); }
+            } else {
+                if(saldoUsd >= usdAOperar) {
+                    saldoCop += costoCop;
+                    saldoUsd -= usdAOperar;
+                    alert(`Has vendido ${usdAOperar} USD`);
+                } else { alert("No tienes suficientes dólares para vender"); }
+            }
+            save();
+            renderData();
+        }
+
+        function renderData() {
+            document.getElementById('balance-cop').innerText = saldoCop.toLocaleString('es-CO', {style:'currency', currency:'COP', maximumFractionDigits:0});
+            document.getElementById('hold-usd').innerText = `${saldoUsd.toLocaleString()} USD`;
+        }
+
+        function save() {
+            localStorage.setItem('ariaconv_cop', saldoCop);
+            localStorage.setItem('ariaconv_usd', saldoUsd);
+        }
+
+        setInterval(getTRM, 60000);
+        getTRM();
+    </script>
+</body>
+</html>
