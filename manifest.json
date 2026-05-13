@@ -1,0 +1,16 @@
+{
+  "name": "jhon arias Trading",
+  "short_name": "bolsa de balores",
+  "description": "Conversor de Dólares a Pesos Colombianos con Trading",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0b0e11",
+  "theme_color": "#161a1e",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2529/2529396.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
